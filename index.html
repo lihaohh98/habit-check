@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>习惯打卡</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#3fae8a">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --accent: #3fae8a;
+    --accent-dark: #2f9e7b;
+    --gray: #b9bfc6;
+    --text: #333a40;
+    --muted: #8a9199;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(165deg, #eaf4ef 0%, #f4f6fb 55%, #faf6ee 100%);
+    min-height: 100vh;
+    color: var(--text);
+    padding: 24px 16px 48px;
+  }
+  .app { max-width: 520px; margin: 0 auto; }
+  .card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 28px rgba(50, 80, 70, .08);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .hidden { display: none !important; }
+
+  /* 顶部 */
+  .header {
+    background: linear-gradient(135deg, #4cc39b, #2f9e7b);
+    color: #fff;
+    box-shadow: 0 10px 26px rgba(47, 158, 123, .28);
+  }
+  .header-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .header h1 { font-size: 22px; letter-spacing: 1px; }
+  .date { font-size: 13px; opacity: .92; }
+  .progress-row { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+  .progress-text { font-size: 15px; font-weight: 600; }
+  .progress-text b { font-size: 20px; }
+  .all-done { font-size: 13px; background: rgba(255,255,255,.22); padding: 4px 10px; border-radius: 999px; }
+  .progress-bar { height: 8px; background: rgba(255,255,255,.28); border-radius: 999px; overflow: hidden; margin-top: 10px; }
+  .progress-fill { height: 100%; width: 0%; background: #fff; border-radius: 999px; transition: width .45s ease; }
+
+  /* 名言 */
+  .quote-card { position: relative; padding: 18px 20px 16px; }
+  .quote-label { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing: 2px; margin-bottom: 8px; }
+  .quote-mark { position: absolute; top: 6px; right: 18px; font-size: 64px; line-height: 1; color: #eaf3ef; font-family: Georgia, serif; pointer-events: none; }
+  .quote-text { font-size: 15.5px; line-height: 1.7; color: #44505a; }
+  .quote-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .quote-author { font-size: 13px; color: var(--muted); }
+  .quote-refresh { border: none; background: #eef6f2; color: var(--accent); font-size: 12px; padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+  .quote-refresh:hover { background: #dff0e8; }
+  .quote-refresh:active { transform: scale(.95); }
+
+  /* 习惯列表 */
+  .card-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .card-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  #habitList { list-style: none; }
+  .habit-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 10px; margin: 4px 0;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background .3s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .habit-row:active { background: #f7f8fa; }
+  .check {
+    width: 28px; height: 28px; flex-shrink: 0;
+    border: 2px solid #cfd6dd; border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .3s ease, border-color .3s ease, transform .2s ease;
+  }
+  .check::after { content: '✓'; font-size: 15px; line-height: 1; color: transparent; transition: color .3s ease; }
+  .habit-name { flex: 1; font-size: 16px; transition: color .3s ease; text-decoration-color: #c3c9cf; }
+  .delete-btn {
+    border: none; background: transparent; color: #b6bdc4;
+    width: 30px; height: 30px; border-radius: 50%;
+    font-size: 15px; cursor: pointer; flex-shrink: 0;
+    transition: color .2s, background .2s;
+  }
+  .delete-btn:hover { color: #e05d5d; background: #fdeeee; }
+  .habit-row.done { background: #f3f5f6; }
+  .habit-row.done .check { background: var(--gray); border-color: var(--gray); transform: scale(1.05); }
+  .habit-row.done .check::after { color: #fff; }
+  .habit-row.done .habit-name { color: #aab1b7; text-decoration: line-through; }
+
+  .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 26px 0 10px; }
+  .empty .emoji { font-size: 34px; display: block; margin-bottom: 8px; }
+
+  .add-row { display: flex; gap: 10px; margin-top: 14px; }
+  #habitInput {
+    flex: 1; min-width: 0;
+    border: 1.5px solid #e3e7ec; border-radius: 12px;
+    padding: 12px 14px; font-size: 15px; outline: none;
+    font-family: inherit;
+    transition: border-color .2s;
+  }
+  #habitInput:focus { border-color: var(--accent); }
+  #habitInput.error { border-color: #e06a6a; }
+  #addBtn {
+    border: none; background: var(--accent); color: #fff;
+    border-radius: 12px; padding: 0 22px; font-size: 15px;
+    cursor: pointer; transition: background .2s, transform .1s;
+  }
+  #addBtn:hover { background: var(--accent-dark); }
+  #addBtn:active { transform: scale(.96); }
+  .add-error { color: #e06a6a; font-size: 12.5px; margin-top: 8px; }
+
+  /* 最近 7 天 */
+  .week-strip { display: flex; gap: 6px; }
+  .week-cell { flex: 1; background: #f6f8fa; border-radius: 12px; padding: 8px 2px 9px; text-align: center; }
+  .week-cell.today { background: #e4f4ed; box-shadow: inset 0 0 0 2px var(--accent); }
+  .week-day { font-size: 11px; color: var(--muted); }
+  .week-num { font-size: 17px; font-weight: 700; margin: 3px 0 2px; }
+  .week-count { font-size: 11px; color: var(--muted); }
+  .week-cell.today .week-num { color: var(--accent-dark); }
+
+  /* 备份 */
+  .backup-row { display: flex; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #eef1f4; }
+  .backup-btn {
+    flex: 1;
+    border: 1.5px solid #e0e6eb; background: #f8fafb; color: #55606a;
+    border-radius: 12px; padding: 10px 0; font-size: 14px; cursor: pointer;
+    transition: background .2s, border-color .2s, color .2s;
+  }
+  .backup-btn:hover { background: #eef4f1; border-color: var(--accent); color: var(--accent-dark); }
+  .backup-btn:active { transform: scale(.97); }
+  .backup-hint { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+  .footnote { text-align: center; color: #a6adb4; font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="card header">
+    <div class="header-top">
+      <h1>🌱 习惯打卡</h1>
+      <span class="date" id="todayDate"></span>
+    </div>
+    <div class="progress-row">
+      <span class="progress-text" id="progressText"></span>
+      <span class="all-done hidden" id="allDone">🎉 全部完成</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </header>
+
+  <section class="card quote-card">
+    <div class="quote-label">今日一言</div>
+    <span class="quote-mark">”</span>
+    <p class="quote-text" id="quoteText"></p>
+    <div class="quote-footer">
+      <span class="quote-author" id="quoteAuthor"></span>
+      <button class="quote-refresh" id="quoteRefresh" title="换一句">换一句 ↻</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-title">今日习惯</div>
+    <div class="card-sub">点击圆圈完成打卡，再点一下可取消</div>
+    <ul id="habitList"></ul>
+    <div class="empty hidden" id="emptyState"><span class="emoji">🌱</span>还没有习惯，先添加一个吧</div>
+    <div class="add-row">
+      <input id="habitInput" maxlength="20" placeholder="添加一个习惯，如：喝水、读书…" autocomplete="off">
+      <button id="addBtn">添加</button>
+    </div>
+    <div class="add-error hidden" id="addError"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-title">最近 7 天</div>
+    <div class="card-sub">看看这几天的坚持情况</div>
+    <div class="week-strip" id="weekStrip"></div>
+    <div class="backup-row">
+      <button class="backup-btn" id="exportBtn">📤 导出备份</button>
+      <button class="backup-btn" id="importBtn">📥 导入备份</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    </div>
+    <p class="backup-hint">备份文件可用来在手机和电脑之间转移打卡数据</p>
+  </section>
+
+  <p class="footnote">数据保存在本机浏览器中 · 用「导出/导入备份」可在手机和电脑间转移数据</p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'habit-tracker';
+
+  // ---------- 名言数据（约 20 句，有出处、鼓励坚持） ----------
+  var QUOTES = [
+    { text: '不积跬步，无以至千里；不积小流，无以成江海。', author: '荀子' },
+    { text: '千里之行，始于足下。', author: '老子' },
+    { text: '合抱之木，生于毫末；九层之台，起于累土。', author: '老子' },
+    { text: '锲而不舍，金石可镂。', author: '荀子' },
+    { text: '道虽迩，不行不至；事虽小，不为不成。', author: '荀子' },
+    { text: '业精于勤，荒于嬉；行成于思，毁于随。', author: '韩愈' },
+    { text: '少成若天性，习惯如自然。', author: '孔子' },
+    { text: '天行健，君子以自强不息。', author: '《周易》' },
+    { text: '宝剑锋从磨砺出，梅花香自苦寒来。', author: '《警世贤文》' },
+    { text: '水滴石穿，绳锯木断。', author: '《鹤林玉露》' },
+    { text: '路漫漫其修远兮，吾将上下而求索。', author: '屈原' },
+    { text: '我们就是我们反复做的事。因此，卓越不是一种行为，而是一种习惯。', author: '亚里士多德' },
+    { text: '习惯是一种顽强而巨大的力量，它可以主宰人生。', author: '培根' },
+    { text: '开始行动是领先的秘诀。', author: '马克·吐温' },
+    { text: '无论你认为自己能行，还是认为自己不行，你都是对的。', author: '亨利·福特' },
+    { text: '天才是百分之一的灵感，加上百分之九十九的汗水。', author: '爱迪生' },
+    { text: '成功不是终点，失败也并非末日，最重要的是继续前行的勇气。', author: '丘吉尔' },
+    { text: '看似不可能的事，直到你完成它为止。', author: '曼德拉' },
+    { text: '日日行，不怕千万里；常常做，不怕千万事。', author: '《格言联璧》' },
+    { text: '罗马不是一天建成的。', author: '西方谚语' }
+  ];
+
+  // ---------- 数据读写 ----------
+  function loadData() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var data = JSON.parse(raw);
+        if (data && Array.isArray(data.habits) && data.records && typeof data.records === 'object') {
+          return { habits: data.habits, records: data.records, updatedAt: data.updatedAt || 0 };
+        }
+      }
+    } catch (e) { /* 忽略损坏的数据 */ }
+    return { habits: [], records: {}, updatedAt: 0 };
+  }
+
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) { /* 存储异常时忽略 */ }
+  }
+
+  var state = loadData();
+
+  // ---------- 工具函数 ----------
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function dateKey(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  var WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+  function todayKey() { return dateKey(new Date()); }
+
+  function formatToday(d) {
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日 星期' + WEEKDAYS[d.getDay()];
+  }
+
+  function dayOfYear(d) {
+    var start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000);
+  }
+
+  function genId() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- DOM 引用 ----------
+  var todayDateEl = document.getElementById('todayDate');
+  var progressTextEl = document.getElementById('progressText');
+  var allDoneEl = document.getElementById('allDone');
+  var progressFillEl = document.getElementById('progressFill');
+  var quoteTextEl = document.getElementById('quoteText');
+  var quoteAuthorEl = document.getElementById('quoteAuthor');
+  var quoteRefreshBtn = document.getElementById('quoteRefresh');
+  var habitListEl = document.getElementById('habitList');
+  var emptyStateEl = document.getElementById('emptyState');
+  var habitInputEl = document.getElementById('habitInput');
+  var addBtnEl = document.getElementById('addBtn');
+  var addErrorEl = document.getElementById('addError');
+  var weekStripEl = document.getElementById('weekStrip');
+
+  // ---------- 渲染 ----------
+  function renderHeader() {
+    var key = todayKey();
+    var rec = state.records[key] || [];
+    var total = state.habits.length;
+    var checked = 0;
+    state.habits.forEach(function (h) { if (rec.indexOf(h.id) !== -1) checked++; });
+
+    todayDateEl.textContent = formatToday(new Date());
+    if (total === 0) {
+      progressTextEl.innerHTML = '今天完成 <b>0</b> 项';
+    } else {
+      progressTextEl.innerHTML = '今天完成 <b>' + checked + '</b>/' + total;
+    }
+    progressFillEl.style.width = total ? (checked / total * 100) + '%' : '0%';
+    allDoneEl.classList.toggle('hidden', !(total > 0 && checked === total));
+  }
+
+  function renderHabits() {
+    var key = todayKey();
+    var rec = state.records[key] || [];
+
+    if (state.habits.length === 0) {
+      habitListEl.innerHTML = '';
+      emptyStateEl.classList.remove('hidden');
+      return;
+    }
+    emptyStateEl.classList.add('hidden');
+
+    habitListEl.innerHTML = state.habits.map(function (h) {
+      var done = rec.indexOf(h.id) !== -1;
+      return '<li class="habit-row' + (done ? ' done' : '') + '" data-id="' + h.id + '">' +
+        '<span class="check" aria-hidden="true"></span>' +
+        '<span class="habit-name">' + escapeHtml(h.name) + '</span>' +
+        '<button class="delete-btn" title="删除习惯">✕</button>' +
+        '</li>';
+    }).join('');
+  }
+
+  function renderWeek() {
+    var now = new Date();
+    var total = state.habits.length;
+    var cells = [];
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      var key = dateKey(d);
+      var rec = state.records[key] || [];
+      var count = 0;
+      state.habits.forEach(function (h) { if (rec.indexOf(h.id) !== -1) count++; });
+      cells.push(
+        '<div class="week-cell' + (i === 0 ? ' today' : '') + '">' +
+        '<div class="week-day">周' + WEEKDAYS[d.getDay()] + '</div>' +
+        '<div class="week-num">' + d.getDate() + '</div>' +
+        '<div class="week-count">' + (total ? count + '/' + total : '—') + '</div>' +
+        '</div>'
+      );
+    }
+    weekStripEl.innerHTML = cells.join('');
+  }
+
+  function renderAll() {
+    renderHeader();
+    renderHabits();
+    renderWeek();
+  }
+
+  // ---------- 名言 ----------
+  var quoteIndex = dayOfYear(new Date()) % QUOTES.length;
+
+  function renderQuote() {
+    var q = QUOTES[quoteIndex];
+    quoteTextEl.textContent = q.text;
+    quoteAuthorEl.textContent = '—— ' + q.author;
+  }
+
+  quoteRefreshBtn.addEventListener('click', function () {
+    quoteIndex = (quoteIndex + 1) % QUOTES.length;
+    renderQuote();
+  });
+
+  // ---------- 备份：导出 / 导入 ----------
+  var exportBtnEl = document.getElementById('exportBtn');
+  var importBtnEl = document.getElementById('importBtn');
+  var importFileEl = document.getElementById('importFile');
+
+  function exportBackup() {
+    var backup = {
+      app: 'habit-tracker',
+      version: 1,
+      savedAt: new Date().toISOString(),
+      data: state
+    };
+    var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '习惯打卡备份-' + todayKey() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function importBackup(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        var data = parsed && parsed.data ? parsed.data : parsed;
+        if (data && Array.isArray(data.habits) && data.records && typeof data.records === 'object') {
+          if (!window.confirm('导入会用备份文件覆盖当前数据，确定继续吗？')) return;
+          state = { habits: data.habits, records: data.records, updatedAt: Date.now() };
+          saveData();
+          renderAll();
+          window.alert('导入成功！');
+        } else {
+          window.alert('备份文件格式不正确');
+        }
+      } catch (e) {
+        window.alert('备份文件读取失败');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  exportBtnEl.addEventListener('click', exportBackup);
+  importBtnEl.addEventListener('click', function () { importFileEl.click(); });
+  importFileEl.addEventListener('change', function () {
+    if (importFileEl.files && importFileEl.files[0]) importBackup(importFileEl.files[0]);
+    importFileEl.value = '';
+  });
+
+  // ---------- 添加 / 删除 / 打卡 ----------
+  function addHabit() {
+    var name = habitInputEl.value.trim();
+    if (!name) { showAddError('请输入习惯名称'); return; }
+    if (name.length > 20) { showAddError('名称不能超过 20 个字'); return; }
+    if (state.habits.some(function (h) { return h.name === name; })) {
+      showAddError('这个习惯已经存在了');
+      return;
+    }
+    state.habits.push({ id: genId(), name: name, createdAt: Date.now() });
+    saveData();
+    habitInputEl.value = '';
+    hideAddError();
+    renderAll();
+    habitInputEl.focus();
+  }
+
+  function showAddError(msg) {
+    addErrorEl.textContent = msg;
+    addErrorEl.classList.remove('hidden');
+    habitInputEl.classList.add('error');
+  }
+
+  function hideAddError() {
+    addErrorEl.classList.add('hidden');
+    habitInputEl.classList.remove('error');
+  }
+
+  addBtnEl.addEventListener('click', addHabit);
+  habitInputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addHabit(); }
+  });
+  habitInputEl.addEventListener('input', hideAddError);
+
+  habitListEl.addEventListener('click', function (e) {
+    var row = e.target.closest ? e.target.closest('.habit-row') : null;
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    if (e.target.closest('.delete-btn')) {
+      deleteHabit(id);
+      return;
+    }
+    toggleHabit(id);
+  });
+
+  function toggleHabit(id) {
+    var key = todayKey();
+    if (!state.records[key]) state.records[key] = [];
+    var arr = state.records[key];
+    var idx = arr.indexOf(id);
+    if (idx === -1) arr.push(id); else arr.splice(idx, 1);
+    saveData();
+    renderAll();
+  }
+
+  function deleteHabit(id) {
+    var habit = null;
+    state.habits.forEach(function (h) { if (h.id === id) habit = h; });
+    if (!habit) return;
+    if (!window.confirm('确定删除习惯「' + habit.name + '」吗？')) return;
+    state.habits = state.habits.filter(function (h) { return h.id !== id; });
+    Object.keys(state.records).forEach(function (k) {
+      state.records[k] = state.records[k].filter(function (rid) { return rid !== id; });
+      if (state.records[k].length === 0) delete state.records[k];
+    });
+    saveData();
+    renderAll();
+  }
+
+  // ---------- 初始化 ----------
+  renderQuote();
+  renderAll();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(function () { /* 忽略 */ });
+  }
+})();
+</script>
+</body>
+</html>
