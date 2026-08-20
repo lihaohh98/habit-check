@@ -1,4 +1,4 @@
-var CACHE_NAME = 'habit-tracker-v1';
+var CACHE_NAME = 'habit-tracker-v2';
 var CORE_FILES = [
   './',
   './index.html',
@@ -34,18 +34,16 @@ self.addEventListener('fetch', function (event) {
   var request = event.request;
   if (request.method !== 'GET') return;
   event.respondWith(
-    caches.match(request).then(function (cached) {
-      if (cached) return cached;
-      return fetch(request).then(function (response) {
-        if (response && response.ok && request.url.indexOf(self.location.origin) === 0) {
-          var clone = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) { cache.put(request, clone); });
-        }
-        return response;
-      }).catch(function () {
-        if (request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+    fetch(request).then(function (response) {
+      if (response && response.ok) {
+        var clone = response.clone();
+        caches.open(CACHE_NAME).then(function (cache) { cache.put(request, clone); });
+      }
+      return response;
+    }).catch(function () {
+      return caches.match(request).then(function (cached) {
+        if (cached) return cached;
+        if (request.mode === 'navigate') return caches.match('./index.html');
       });
     })
   );
